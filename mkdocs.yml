@@ -1,37 +1,40 @@
-site_name: Shipping Service Documentation
-site_description: Documentation for the Shipping Service API
+site_name: Learn FastAPI — Tutorial Guide
+site_description: A progressive, hands-on tutorial for learning FastAPI by building a real Shipping API
 theme:
   name: material
   palette:
     - scheme: default
-      primary: custom
-      accent: custom
+      primary: deep purple
+      accent: cyan
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - scheme: slate
-      primary: custom
-      accent: custom
+      primary: deep purple
+      accent: cyan
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-  colors:
-    primary: "#cba6f7"
-    accent: "#89dceb"
-    scheme:
-      nav:
-        background: "#313244"
-        text: "#fab387"
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.sections
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
-  - API Documentation: api.md
-  - Architecture: architecture.md
+  - Tutorial:
+    - "Chapter 1 — Getting Started": chapters/ch01-getting-started.md
+    - "Chapter 2 — Building Endpoints": chapters/ch02-building-endpoints.md
+    - "Chapter 3 — Under the Hood": chapters/ch03-under-the-hood.md
   - Concepts:
-    - Decorator Pattern: concepts/decorator.md
+    - Python Decorators: concepts/decorator.md
 plugins:
   - search
 markdown_extensions:
-  - pymdownx.highlight
+  - pymdownx.highlight:
+      anchor_linenums: true
   - pymdownx.superfences
   - pymdownx.inlinehilite
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html

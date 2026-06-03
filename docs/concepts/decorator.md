@@ -1,21 +1,21 @@
-# Decorator Pattern in Routing
+# Python Decorators — The Magic Behind `@app.get()`
 
-## Overview
+Every time you write `@app.get("/shipment/latest")` in FastAPI, you're using a **Python decorator**. But what exactly is a decorator, and how does it work? This deep-dive will demystify the concept by building a mini routing framework from scratch.
 
-The Decorator Pattern is a structural design pattern that allows you to attach additional responsibilities to an object dynamically. In the context of the Shipping Service, it's used to create a simple, elegant routing system.
+---
 
 ## What is a Decorator?
 
-A decorator is a function that modifies the behavior of another function without permanently changing it. It "wraps" a function to add additional functionality.
+A decorator is a function that **wraps another function** to modify or extend its behavior — without changing the original function's code.
 
-### Simple Decorator Example
+Here's the simplest possible decorator:
 
 ```python
 def my_decorator(func):
     def wrapper():
-        print("Something before the function")
+        print("Before the function runs")
         func()
-        print("Something after the function")
+        print("After the function runs")
     return wrapper
 
 @my_decorator
@@ -27,93 +27,182 @@ say_hello()
 
 **Output:**
 ```
-Something before the function
+Before the function runs
 Hello!
-Something after the function
+After the function runs
 ```
 
-## Decorator-Based Routing
+### What Actually Happens?
 
-The Shipping Service uses decorators to register routes in a simple, elegant way.
+The `@my_decorator` syntax is **syntactic sugar**. It's equivalent to:
 
-### Implementation
+```python
+def say_hello():
+    print("Hello!")
+
+say_hello = my_decorator(say_hello)  # ← Same as @my_decorator
+```
+
+So `@decorator` is just a shorthand for reassigning the function to a wrapped version of itself.
+
+---
+
+## Connecting to FastAPI
+
+In your `app/main.py`, you write:
+
+```python
+@app.get("/shipment/latest")
+def get_latest_shipment() -> dict[str, Any]:
+    id = max(shipments.keys())
+    return shipments[id]
+```
+
+This is a decorator in action! Here's what FastAPI does behind the scenes:
+
+1. `app.get("/shipment/latest")` is called → returns a decorator function
+2. That decorator receives `get_latest_shipment` as its argument
+3. Inside, FastAPI **registers** the function in its internal route table: *"when someone visits GET /shipment/latest, call this function"*
+4. The original function is returned unchanged
+
+This is called a **decorator factory** — a function that *creates* a decorator. Let's build one ourselves.
+
+---
+
+## Building a Mini Router
+
+To truly understand how `@app.get()` works, let's build a simplified version from scratch:
 
 ```python
 from typing import Callable, Any
 
-# Storage for routes
+# This dictionary stores our routes — just like FastAPI's internal route table
 routes: dict[str, Callable[[Any], Any]] = {}
 
-# Decorator function
+# The decorator factory
 def router(path: str):
-    def wrapper(fun):
-        routes[path] = fun  # Register the function
-        return fun          # Return the original function
+    def wrapper(func):
+        routes[path] = func   # Register the function for this path
+        return func            # Return the original function unchanged
     return wrapper
-
-# Using the decorator
-@router("/shipment")
-def get_shipment():
-    return {
-        "message": "You shipment is on the way"
-    }
-
-@router("/status")
-def get_status():
-    return {
-        "status": "active"
-    }
 ```
 
-### How It Works
+### Using Our Router
 
-```
-1. @router("/shipment") is called with path="/shipment"
-   ↓
-2. router() returns the wrapper function
-   ↓
-3. wrapper function receives get_shipment as argument
-   ↓
-4. routes["/shipment"] = get_shipment (registration)
-   ↓
-5. wrapper returns get_shipment unchanged
-   ↓
-6. get_shipment is now registered in the routes dictionary
-```
-
-## Advantages
-
-### 1. **Clean Syntax**
-Decorators provide a clean, readable way to define routes:
 ```python
 @router("/shipment")
 def get_shipment():
+    return {"message": "Your shipment is on the way"}
+
+@router("/status")
+def get_status():
+    return {"status": "active"}
+```
+
+### What Happens Step by Step
+
+```
+1. @router("/shipment") is called
+   ↓
+2. router() receives path="/shipment" and returns wrapper function
+   ↓
+3. wrapper() receives get_shipment as its argument
+   ↓
+4. routes["/shipment"] = get_shipment  (registered!)
+   ↓
+5. wrapper() returns get_shipment unchanged
+   ↓
+6. get_shipment is now in the routes dictionary
+```
+
+After both decorators run, our `routes` dictionary looks like:
+
+```python
+{
+    "/shipment": <function get_shipment>,
+    "/status": <function get_status>
+}
+```
+
+### Testing Our Router
+
+Here's a simple CLI loop to dispatch requests:
+
+```python
+request = ""
+while request != "quit":
+    request = input("> ")
+    if request in routes:
+        print(routes[request]())
+    else:
+        print("No route found")
+```
+
+```
+> /shipment
+{'message': 'Your shipment is on the way'}
+> /status
+{'status': 'active'}
+> /unknown
+No route found
+> quit
+```
+
+**This is essentially what FastAPI does** — just with HTTP requests instead of terminal input, and a lot more features on top.
+
+---
+
+## Types of Decorators
+
+### 1. Simple Decorator (no arguments)
+
+```python
+def log_calls(func):
+    def wrapper(*args, **kwargs):
+        print(f"Calling: {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper
+
+@log_calls
+def get_shipment():
+    return {"message": "Shipment data"}
+```
+
+### 2. Decorator Factory (with arguments)
+
+This is what FastAPI uses — a function that **takes arguments** and **returns a decorator**:
+
+```python
+def router(path: str):           # ← Takes arguments
+    def decorator(func):         # ← This is the actual decorator
+        routes[path] = func
+        return func
+    return decorator              # ← Returns the decorator
+
+@router("/shipment")             # ← router("/shipment") returns the decorator
+def get_shipment():              # ← The decorator receives this function
     pass
 ```
 
-### 2. **Separation of Concerns**
-Route registration is separated from the actual function logic.
+!!! info "Two Layers of Wrapping"
+    - **Simple decorator**: `@log_calls` → one layer (`func → wrapper`)
+    - **Decorator factory**: `@router("/shipment")` → two layers (`args → decorator → func`)
 
-### 3. **Reusability**
-The routing mechanism can be applied to multiple functions easily.
+    FastAPI uses the factory pattern because it needs to pass the URL path as an argument.
 
-### 4. **Extensibility**
-Easy to add additional functionality like authentication, logging, validation, etc.
+---
 
-### 5. **Registry Pattern**
-Automatically builds a registry of all available routes.
+## Making It More Powerful: Adding Logging
 
-## Advanced Example: Router with Logging
-
-Here's an enhanced decorator that adds logging:
+Let's enhance our router to log every request:
 
 ```python
 def router_with_logging(path: str):
     def wrapper(func):
         def inner(*args, **kwargs):
-            print(f"Accessing route: {path}")
+            print(f"📥 Request received: {path}")
             result = func(*args, **kwargs)
-            print(f"Route {path} completed")
+            print(f"📤 Response sent for: {path}")
             return result
         routes[path] = inner
         return func
@@ -124,122 +213,52 @@ def get_shipment():
     return {"message": "Shipment data"}
 ```
 
-## Comparison: Decorator vs Traditional Approach
+Now every call to this route gets logged automatically. This is exactly how FastAPI's middleware and dependency injection work under the hood.
 
-### Without Decorator
-```python
-def get_shipment():
-    return {"message": "Shipment data"}
+---
 
-def register_route(path, func):
-    routes[path] = func
+## Stacking Decorators
 
-register_route("/shipment", get_shipment)
-```
-
-### With Decorator
-```python
-@router("/shipment")
-def get_shipment():
-    return {"message": "Shipment data"}
-```
-
-The decorator approach is more concise and follows modern Python conventions.
-
-## Using the Router
+You can apply multiple decorators to a single function. They execute **bottom-up**:
 
 ```python
-# Simple CLI example
-routes = {}
-
-@router("/shipment")
-def get_shipment():
-    return {"message": "You shipment is on the way"}
-
-# Command loop
-request = ""
-while request != "quit":
-    request = input("> ")
-    if request in routes:
-        print(routes[request]())
-    else:
-        print("No route found")
-```
-
-**Usage:**
-```
-> /shipment
-{'message': 'You shipment is on the way'}
-> /unknown
-No route found
-> quit
-```
-
-## Decorator Chain
-
-Decorators can be stacked for multiple effects:
-
-```python
-def log_decorator(func):
+def log(func):
     def wrapper(*args, **kwargs):
-        print(f"Calling: {func.__name__}")
+        print(f"LOG: Calling {func.__name__}")
         return func(*args, **kwargs)
     return wrapper
 
-def validate_decorator(func):
+def validate(func):
     def wrapper(*args, **kwargs):
-        print("Validating inputs...")
+        print("VALIDATE: Checking inputs...")
         return func(*args, **kwargs)
     return wrapper
 
-@log_decorator
-@validate_decorator
+@log           # ← Runs second (outermost)
+@validate      # ← Runs first (innermost)
 @router("/shipment")
 def get_shipment():
     return {"message": "Shipment data"}
 ```
 
-## Real-World Applications
-
-The decorator pattern is used extensively in modern frameworks:
-
-### FastAPI
-```python
-@app.get("/shipment")
-def get_shipment():
-    return {"content": "wooden table", "status": "in transit"}
+**Output when called:**
+```
+LOG: Calling wrapper
+VALIDATE: Checking inputs...
 ```
 
-### Flask
-```python
-@app.route('/shipment', methods=['GET'])
-def get_shipment():
-    return {'status': 'in transit'}
-```
+---
 
-### Django
-```python
-@login_required
-def shipment_view(request):
-    return render(request, 'shipment.html')
-```
+## Best Practice: Use `functools.wraps`
 
-## Best Practices
-
-1. **Keep Decorators Simple** - Single responsibility principle
-2. **Use functools.wraps** - Preserves function metadata
-3. **Document Decorators** - Clear docstrings
-4. **Test Thoroughly** - Test both decorated and undecorated behavior
-5. **Avoid Over-Decorating** - Don't use decorators excessively
-
-### Better Decorator with functools.wraps
+When you wrap a function with a decorator, the wrapper replaces the original function's metadata (name, docstring, etc.). Use `@wraps` to preserve it:
 
 ```python
 from functools import wraps
 
 def router(path: str):
     def wrapper(func):
-        @wraps(func)  # Preserves metadata
+        @wraps(func)  # ← Preserves func.__name__, func.__doc__, etc.
         def inner(*args, **kwargs):
             return func(*args, **kwargs)
         routes[path] = inner
@@ -247,18 +266,67 @@ def router(path: str):
     return wrapper
 ```
 
-## Conclusion
+!!! warning "Why this matters"
+    Without `@wraps`, debugging tools, logging, and FastAPI's auto-docs would show `"inner"` or `"wrapper"` as the function name instead of `"get_shipment"`. Always use `@wraps` in production decorators.
 
-The Decorator Pattern is a powerful tool for:
-- Creating elegant routing systems
-- Adding cross-cutting concerns
-- Maintaining clean, readable code
-- Building extensible frameworks
+---
 
-The simple router implementation in the Shipping Service demonstrates how decorators can be used to create a flexible, intuitive interface for route registration.
+## Decorator vs No Decorator
 
-## See Also
+Here's the same functionality without decorators — notice how the decorator version is cleaner:
 
-- [Python Decorator Documentation](https://docs.python.org/3/glossary.html#term-decorator)
-- [Functional Programming in Python](https://realpython.com/inner-functions-what-are-they-good-for/)
-- [Design Patterns](https://refactoring.guru/design-patterns)
+### Without Decorator ❌
+```python
+def get_shipment():
+    return {"message": "Shipment data"}
+
+def get_status():
+    return {"status": "active"}
+
+# Manual registration — easy to forget, hard to read
+routes["/shipment"] = get_shipment
+routes["/status"] = get_status
+```
+
+### With Decorator ✅
+```python
+@router("/shipment")
+def get_shipment():
+    return {"message": "Shipment data"}
+
+@router("/status")
+def get_status():
+    return {"status": "active"}
+```
+
+The decorator version is:
+
+- **Self-documenting** — you can see the route right above the function
+- **Impossible to forget** — registration happens automatically
+- **Consistent** — every route follows the same pattern
+
+---
+
+## Key Takeaways
+
+| Concept | Summary |
+|---------|---------|
+| **Decorator** | A function that wraps another function to add behavior |
+| **`@syntax`** | Syntactic sugar for `func = decorator(func)` |
+| **Decorator Factory** | A function that takes arguments and returns a decorator (e.g., `@app.get("/path")`) |
+| **`@wraps`** | Preserves the wrapped function's metadata |
+| **FastAPI's `@app.get()`** | A decorator factory that registers your function in FastAPI's route table |
+
+The decorator pattern is one of Python's most powerful features. Understanding it deeply will help you not just with FastAPI, but with every Python framework you encounter.
+
+---
+
+## Further Reading
+
+- [Python Decorator Documentation](https://docs.python.org/3/glossary.html#term-decorator) — Official Python docs
+- [RealPython: Primer on Decorators](https://realpython.com/primer-on-python-decorators/) — Comprehensive tutorial
+- [PEP 318 — Decorators for Functions](https://peps.python.org/pep-0318/) — The proposal that introduced decorator syntax
+
+---
+
+**[← Back to Home](../index.md)**
