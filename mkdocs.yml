@@ -1,0 +1,37 @@
+site_name: Shipping Service Documentation
+site_description: Documentation for the Shipping Service API
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  colors:
+    primary: "#cba6f7"
+    accent: "#89dceb"
+    scheme:
+      nav:
+        background: "#313244"
+        text: "#fab387"
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - API Documentation: api.md
+  - Architecture: architecture.md
+  - Concepts:
+    - Decorator Pattern: concepts/decorator.md
+plugins:
+  - search
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
