@@ -27,6 +27,7 @@ nav:
     - "Chapter 3 — Under the Hood": chapters/ch03-under-the-hood.md
   - Concepts:
     - Python Decorators: concepts/decorator.md
+    - Path & Query Parameters: concepts/path_and_query_parameter.md
 plugins:
   - search
 markdown_extensions:

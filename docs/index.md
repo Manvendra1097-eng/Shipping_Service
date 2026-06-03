@@ -92,6 +92,7 @@ This guide is organized as **numbered chapters**. Each chapter builds on the pre
 These are standalone pages that explore Python/FastAPI concepts in detail:
 
 - 🎯 [Python Decorators](concepts/decorator.md) — The magic behind `@app.get()`
+- 🔀 [Path & Query Parameters](concepts/path_and_query_parameter.md) — Two ways to pass data to your API
 
 ## Project Structure
 

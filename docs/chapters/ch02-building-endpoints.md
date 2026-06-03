@@ -22,6 +22,9 @@ By the end of this chapter, your API will have these endpoints:
 |----------|--------|-------------|
 | `/shipment/latest` | GET | Get the most recent shipment |
 | `/shipment/{id}` | GET | Get a specific shipment by its ID |
+| `/shipment` | POST | Create a new shipment |
+| `/shipment/{id}` | PATCH | Partially update a shipment |
+| `/shipment/{id}` | DELETE | Cancel a shipment |
 | `/scalar` | GET | Interactive API documentation |
 
 All of these are already implemented in your `app/main.py`. Let's walk through the code line by line.
@@ -36,11 +39,13 @@ Before connecting a database, it's common to start with **in-memory data** — a
 shipments = {
     12701: {
         "id": 12701,
+        "weight": 0.6,
         "content": "Wooden table",
         "status": "in-transit"
     },
     12702: {
         "id": 12702,
+        "weight": 1.0,
         "content": "Wooden Chai",
         "status": "Ordered"
     }
@@ -142,9 +147,10 @@ What if you want to look up a **specific** shipment by its ID? That's where **pa
 @app.get("/shipment/{id}")
 def get_shipment(id: str) -> dict[str, Any]:
     if id not in shipments:
-        return {
-            "details": "Given ID doesn't exits"
-        }
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Given ID doesn't exits"
+        )
     return shipments[id]
 ```
 
@@ -193,52 +199,147 @@ http://localhost:8000/shipment/12701
 
 ---
 
-## Lesson 2.4: Error Handling
+## Lesson 2.4: Error Handling with HTTPException
 
-The current error handling returns a plain dictionary:
+When a shipment isn't found, we need to tell the client **something went wrong** — and we need to do it using proper HTTP status codes. That's what `HTTPException` does.
+
+### The Import
 
 ```python
-if id not in shipments:
-    return {
-        "details": "Given ID doesn't exits"
-    }
+from fastapi import FastAPI, HTTPException, status
 ```
 
-This works, but it has a problem: **the HTTP status code is still 200 (OK)**. Any client consuming this API would think the request succeeded, even though the shipment wasn't found.
+We import three things from FastAPI:
 
-!!! tip "The Better Way: HTTPException"
-    FastAPI provides `HTTPException` for returning proper error responses:
+| Import | Purpose |
+|--------|--------|
+| `FastAPI` | The application class |
+| `HTTPException` | An exception that returns an HTTP error response |
+| `status` | A module with named constants for HTTP status codes |
 
-    ```python
-    from fastapi import FastAPI, HTTPException
+### Using HTTPException
 
-    @app.get("/shipment/{id}")
-    def get_shipment(id: int) -> dict[str, Any]:
-        if id not in shipments:
-            raise HTTPException(
-                status_code=404,
-                detail="Shipment not found"
-            )
-        return shipments[id]
-    ```
+Here's how our error handling works in `app/main.py`:
 
-    Now the client receives a `404 Not Found` status code, which is the correct HTTP semantic for "this resource doesn't exist." We'll implement proper error handling in Chapter 12.
+```python
+@app.get("/shipment/{id}")
+def get_shipment(id: str) -> dict[str, Any]:
+    if id not in shipments:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Given ID doesn't exits"
+        )
+    return shipments[id]
+```
 
-### Common HTTP Status Codes
+### Why `raise` Instead of `return`?
 
-| Code | Meaning | When to use |
-|------|---------|-------------|
-| `200` | OK | Request succeeded |
-| `201` | Created | New resource was created (POST) |
-| `204` | No Content | Success, but nothing to return (DELETE) |
-| `400` | Bad Request | Client sent invalid data |
-| `404` | Not Found | Resource doesn't exist |
-| `422` | Unprocessable Entity | Validation error (FastAPI auto-generates this) |
-| `500` | Internal Server Error | Something broke on the server |
+You might wonder — why `raise` an exception instead of `return`ing an error dict?
+
+| Approach | Status Code | Client Knows It's an Error? |
+|----------|-------------|----------------------------|
+| `return {"details": "not found"}` | `200 OK` ❌ | No — looks like success |
+| `raise HTTPException(status_code=404)` | `404 Not Found` ✅ | Yes — proper error signal |
+
+When you `raise HTTPException`, FastAPI:
+
+1. **Stops** executing the function immediately
+2. Returns the `status_code` you specified (e.g., `404`)
+3. Sends the `detail` message as the response body:
+
+```json
+{
+    "detail": "Given ID doesn't exits"
+}
+```
+
+### The `status` Module — Named Constants
+
+Instead of writing magic numbers like `404`, FastAPI provides the `status` module with readable constants:
+
+```python
+# ❌ Magic number — what does 404 mean again?
+status_code=404
+
+# ✅ Named constant — self-documenting!
+status_code=status.HTTP_404_NOT_FOUND
+```
+
+Common status constants you'll use:
+
+| Constant | Value | Meaning |
+|----------|-------|--------|
+| `status.HTTP_200_OK` | 200 | Request succeeded |
+| `status.HTTP_201_CREATED` | 201 | New resource created (POST) |
+| `status.HTTP_204_NO_CONTENT` | 204 | Success, nothing to return (DELETE) |
+| `status.HTTP_400_BAD_REQUEST` | 400 | Client sent invalid data |
+| `status.HTTP_404_NOT_FOUND` | 404 | Resource doesn't exist |
+| `status.HTTP_422_UNPROCESSABLE_ENTITY` | 422 | Validation error |
+| `status.HTTP_500_INTERNAL_SERVER_ERROR` | 500 | Something broke on the server |
+
+!!! tip "IDE Autocomplete"
+    Type `status.HTTP_` in your editor and you'll get autocomplete suggestions for all status codes. This is much better than memorizing numbers!
+
+!!! note "More error handling ahead"
+    This is the basic pattern. In Chapter 12, we'll build custom exception handlers, structured error responses, and global error middleware.
+
+
 
 ---
 
-## Lesson 2.5: API Documentation with Scalar
+## Lesson 2.5: Modifying Data (POST, PATCH, DELETE)
+
+While `GET` is for reading data, APIs also need to create, update, and delete resources. 
+
+### Creating Data (`POST`)
+
+To receive data from the client, FastAPI lets you accept a JSON body as a simple dictionary:
+
+```python
+@app.post("/shipment")
+def submit_shipment(req_body: dict[str, Any]) -> dict[str, Any]:
+    id = max(shipments.keys()) + 1
+    weight = req_body["weight"]
+    content = req_body["content"]
+    shipments[id] = {
+       "id": id, "weight": weight, "content": content, "status": "Placed"
+    }
+    return shipments[id]
+```
+
+!!! note "Better request bodies coming"
+    Right now, we are manually parsing `req_body["weight"]` from a raw dictionary. In Chapter 4, we'll replace `dict[str, Any]` with a **Pydantic model**, which will automatically validate that the client sent the required fields!
+
+### Updating Data (`PATCH`)
+
+A `PATCH` request is used to partially update an existing resource (whereas `PUT` usually replaces it entirely). 
+
+```python
+@app.patch("/shipment/{id}")
+def update_shipment(id: int, req_body: dict[str, Any]) -> dict[str, Any]:
+    shipment = shipments[id]
+    shipment.update(req_body)
+    return shipments[id]
+```
+Notice how it takes *both* a path parameter (`id: int`) to identify the resource, and a request body (`req_body: dict`) for the new values.
+
+### Deleting Data (`DELETE`)
+
+```python
+@app.delete("/shipment/{id}")
+def cancel_shipment(id: int) -> int:
+    if id not in shipments:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Shipment ID doesn't exists."
+        )
+    del shipments[id]
+    return id
+```
+
+---
+
+## Lesson 2.6: API Documentation with Scalar
 
 The last endpoint serves the Scalar documentation UI:
 
@@ -268,7 +369,7 @@ def scalar_html():
 Here's the full `app/main.py` with all the pieces together:
 
 ```python
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from scalar_fastapi import get_scalar_api_reference
 from typing import Any
 
@@ -277,28 +378,55 @@ app = FastAPI()
 shipments = {
     12701:{
         "id": 12701,
+        "weight":0.6,
         "content": "Wooden table",
         "status": "in-transit"
     },
      12702:{
         "id": 12702,
+        "weight":1,
         "content": "Wooden Chai",
         "status": "Ordered"
     }
 }
 
 @app.get("/shipment/latest")
-def get_latest_shipment() -> dict[str, Any]:
+def get_latest_shipment() -> dict[str,Any]:
     id = max(shipments.keys())
     return shipments[id]
 
 @app.get("/shipment/{id}")
 def get_shipment(id: str) -> dict[str, Any]:
     if id not in shipments:
-        return {
-            "details": "Given ID doesn't exits"
-        }
+        raise HTTPException (status_code=status.HTTP_404_NOT_FOUND,detail="Given ID doesn't exits")
     return shipments[id]
+
+@app.post("/shipment")
+def submit_shipment(req_body: dict[str, Any]) -> dict[str, Any]:
+    id = max(shipments.keys()) + 1
+    weight = req_body["weight"]
+    content = req_body["content"]
+    shipments[id] = {
+       "id":id, "weight": weight, "content": content, "status": "Placed"
+    }
+    return shipments[id]
+
+@app.patch("/shipment/{id}")
+def update_shipment(id: int,req_body: dict[str, Any]) -> dict[str, Any]:
+    weight = req_body.get("weight")
+    if weight is not None:
+        shipments[id]["weight"] = weight
+    content = req_body.get("content")
+    if content is not None:
+        shipments[id]["content"] = content
+    return shipments[id]
+
+@app.delete("/shipment/{id}")
+def cancel_shipment(id: int) -> int:
+    if id not in shipments:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Shipment ID doesn't exists.")
+    del shipments[id]
+    return id
 
 @app.get("/scalar",include_in_schema=False)
 def scalar_html():
@@ -323,18 +451,6 @@ Here are some exercises to solidify what you learned:
     def get_all_shipments() -> list[dict[str, Any]]:
         return list(shipments.values())
     ```
-
-!!! example "Exercise 3: Add a POST Endpoint"
-    Create a `POST /shipment` endpoint that adds a new shipment. You'll need to accept JSON data in the request body:
-    ```python
-    @app.post("/shipment")
-    def create_shipment(shipment: dict[str, Any]) -> dict[str, Any]:
-        new_id = max(shipments.keys()) + 1
-        shipment["id"] = new_id
-        shipments[new_id] = shipment
-        return shipment
-    ```
-    Test it with: `curl -X POST http://localhost:8000/shipment -H "Content-Type: application/json" -d '{"content": "Glass vase", "status": "pending"}'`
 
 ---
 
