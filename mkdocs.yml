@@ -25,9 +25,12 @@ nav:
     - "Chapter 1 — Getting Started": chapters/ch01-getting-started.md
     - "Chapter 2 — Building Endpoints": chapters/ch02-building-endpoints.md
     - "Chapter 3 — Under the Hood": chapters/ch03-under-the-hood.md
+    - "Chapter 4 — Pydantic Models": chapters/ch04-pydantic-models.md
   - Concepts:
     - Python Decorators: concepts/decorator.md
     - Path & Query Parameters: concepts/path_and_query_parameter.md
+    - Data Validation (Pydantic): concepts/pydantic.md
+    - Enumerations (Enums): concepts/enum.md
 plugins:
   - search
 markdown_extensions:

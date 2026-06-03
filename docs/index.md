@@ -34,20 +34,20 @@ This guide is organized as **numbered chapters**. Each chapter builds on the pre
 
 ## Tutorial Chapters
 
-### Part 1: FastAPI Foundations ✅
+### Part 1 & 2: Foundations & Data Modeling ✅
 
 | Chapter | Topic | What You'll Learn |
 |---------|-------|-------------------|
 | [Chapter 1](chapters/ch01-getting-started.md) | Getting Started | Project setup, virtual environments, running your first server |
 | [Chapter 2](chapters/ch02-building-endpoints.md) | Building Endpoints | GET routes, path parameters, in-memory data, error handling |
 | [Chapter 3](chapters/ch03-under-the-hood.md) | Under the Hood | Request lifecycle, ASGI, type hints, OpenAPI schema |
+| [Chapter 4](chapters/ch04-pydantic-models.md) | Pydantic Models | Request/response schemas, data validation, serialization |
 
-### Part 2: Data Modeling & Validation 🔜
+### Part 2: Full CRUD 🔜
 
 | Chapter | Topic | What You'll Learn |
 |---------|-------|-------------------|
-| Chapter 4 | Pydantic Models | Request/response schemas, data validation, serialization |
-| Chapter 5 | Full CRUD | POST, PUT, DELETE — complete shipment lifecycle |
+| Chapter 5 | Full CRUD | Complete shipment lifecycle with Pydantic |
 
 ### Part 3: Database Integration 🔜
 
@@ -93,6 +93,8 @@ These are standalone pages that explore Python/FastAPI concepts in detail:
 
 - 🎯 [Python Decorators](concepts/decorator.md) — The magic behind `@app.get()`
 - 🔀 [Path & Query Parameters](concepts/path_and_query_parameter.md) — Two ways to pass data to your API
+- 🛡️ [Data Validation (Pydantic)](concepts/pydantic.md) — Type-safe request/response models
+- 📋 [Enumerations (Enums)](concepts/enum.md) — Restricting fields to predefined values
 
 ## Project Structure
 
@@ -102,15 +104,19 @@ Here is the actual layout of this project:
 learn_fastapi/
 ├── app/                          # Application code
 │   ├── __init__.py               # Makes app/ a Python package
-│   └── main.py                   # FastAPI application — all endpoints live here
+│   ├── app.py                    # FastAPI application — all endpoints live here
+│   └── schema.py                 # Pydantic models and data validation
 ├── docs/                         # This tutorial documentation (MkDocs)
 │   ├── index.md                  # You are here!
 │   ├── chapters/                 # Tutorial chapters (numbered, progressive)
 │   │   ├── ch01-getting-started.md
 │   │   ├── ch02-building-endpoints.md
-│   │   └── ch03-under-the-hood.md
+│   │   ├── ch03-under-the-hood.md
+│   │   └── ch04-pydantic-models.md
 │   └── concepts/                 # Concept deep-dives (standalone)
-│       └── decorator.md
+│       ├── decorator.md
+│       ├── enum.md
+│       └── path_and_query_parameter.md
 ├── mkdocs.yml                    # MkDocs configuration
 ├── requirements.txt              # Python dependencies
 └── venv/                         # Virtual environment (not committed to git)

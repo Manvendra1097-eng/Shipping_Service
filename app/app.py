@@ -2,16 +2,18 @@ from fastapi import FastAPI, HTTPException, status
 from scalar_fastapi import get_scalar_api_reference
 from typing import Any
 
+from app.schema import Shipment
+
 app = FastAPI()
+
 
 shipments = {
     12701: {
-        "id": 12701,
         "weight": 0.6,
         "content": "Wooden table",
         "status": "in-transit",
     },
-    12702: {"id": 12702, "weight": 1, "content": "Wooden Chai", "status": "Ordered"},
+    12702: {"weight": 1, "content": "Wooden Chai", "status": "Ordered"},
 }
 
 
@@ -30,13 +32,11 @@ def get_shipment(id: str) -> dict[str, Any]:
     return shipments[id]
 
 
-@app.post("/shipment")
-def submit_shipment(req_body: dict[str, Any]) -> dict[str, Any]:
+@app.post("/shipment", response_model=Shipment)
+def submit_shipment(req_body: Shipment):
     id = max(shipments.keys()) + 1
-    weight = req_body["weight"]
-    content = req_body["content"]
-    shipments[id] = {"id": id, "weight": weight, "content": content, "status": "Placed"}
-    return shipments[id]
+    shipments[id] = req_body.model_dump()
+    return Shipment.model_validate(shipments[id])
 
 
 @app.patch("/shipment/{id}")
