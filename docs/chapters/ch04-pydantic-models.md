@@ -1,12 +1,12 @@
-# Chapter 4: Pydantic Models
+# Chapter 4: Pydantic Models & Schemas
 
 In Chapter 2, we built endpoints that manually accepted and returned raw dictionaries (`dict[str, Any]`). This worked, but it had several issues:
 
-- **No Validation:** A client could send `{"weight": "heavy"}` instead of a number, and our app would crash when it tried to process it.
+- **No Validation:** A client could send `{"weight": "heavy"}` instead of a number, and our app would crash.
 - **No Autocomplete:** Your IDE didn't know what fields were inside the dictionary.
 - **Poor Documentation:** The OpenAPI docs didn't know what data to expect.
 
-In this chapter, we fix all of that using **Pydantic**, FastAPI's built-in data validation engine.
+In this chapter, we fix all of that using **Pydantic**, FastAPI's built-in data validation engine. We will also learn an advanced pattern: using different schemas for Creating vs Reading data.
 
 !!! note "Code Evolution"
     We are splitting our code into two files:
@@ -16,7 +16,7 @@ In this chapter, we fix all of that using **Pydantic**, FastAPI's built-in data 
 
 ---
 
-## Lesson 4.1: Defining the Schema
+## Lesson 4.1: Defining the Schema (`schema.py`)
 
 Create a new file `app/schema.py`. This is where we will define what a "Shipment" actually looks like.
 
@@ -34,12 +34,11 @@ class ShipmentStatus(str, Enum):
     DELIVERED = "delivered"
 ```
 
-!!! tip "Why `str, Enum`?"
-    Inheriting from both `str` and `Enum` tells FastAPI to serialize these values as standard strings in JSON responses. See the [Enumerations concept page](../concepts/enum.md) for a deep dive!
+### 2. Base Models & Inheritance
 
-### 2. The Shipment Model (BaseModel)
+In real APIs, the data you *receive* to create an item is often different from the data you *return* when reading an item. For example, when creating a shipment, the client doesn't send the `status` (it defaults to "placed"). But when reading a shipment, we *do* want to return the status.
 
-Next, we define the `Shipment` class by inheriting from Pydantic's `BaseModel`:
+We can solve this elegantly using **Pydantic Inheritance**:
 
 ```python
 from random import randint
@@ -49,67 +48,88 @@ from pydantic import BaseModel, Field
 def random_generator():
     return randint(110000, 129999)
 
-class Shipment(BaseModel):
+# 1. The Base Model (Shared Fields)
+class BaseShipment(BaseModel):
     content: str = Field(max_length=30, description="Contents of the shipment")
     weight: float = Field(lt=25, description="Weight of the shipment in kg")
     destination: Optional[int] = Field(
         default_factory=random_generator,
         description="Destination zipcode, if not passed send to random location 😁",
     )
-    status: ShipmentStatus = Field(
-        default=ShipmentStatus.PLACED, description="Status of the shipment"
-    )
+
+# 2. Used for POST requests (Creating)
+class ShipmentCreate(BaseShipment):
+    pass  # Inherits content, weight, and destination. No status needed!
+
+# 3. Used for GET requests (Reading)
+class ShipmentRead(BaseShipment):
+    status: ShipmentStatus  # Adds the status field to the base fields
+
+# 4. Used for PATCH requests (Updating)
+class ShipmentUpdate(BaseModel):
+    status: ShipmentStatus = Field(description="Status of the shipment")
 ```
 
-**Let's break down the magic of `Field`:**
+**The Magic of `Field`:**
 - `max_length=30`: FastAPI will reject any content string longer than 30 characters.
 - `lt=25`: The weight must be strictly *less than* 25 kg.
-- `default_factory=random_generator`: If the client doesn't provide a destination zip code, Pydantic will call the `random_generator` function to create one dynamically!
-- `status: ShipmentStatus = Field(default=ShipmentStatus.PLACED)`: The status defaults to "placed" and is strictly validated against our Enum.
+- `default_factory`: If the client omits `destination`, Pydantic calls `random_generator()` to create one dynamically!
 
 ---
 
-## Lesson 4.2: Using the Model in Endpoints
+## Lesson 4.2: Using the Models in Endpoints
 
-Now open your `app/app.py` (which you should rename from `main.py`). Let's import our new schema and upgrade the `POST /shipment` endpoint.
+Now open your `app/app.py`. Let's import our new schemas and upgrade our endpoints.
 
 ### The Import
 
 ```python
-from app.schema import Shipment
+from app.schema import ShipmentCreate, ShipmentRead, ShipmentStatus, ShipmentUpdate
 ```
 
-### Upgrading the POST Endpoint
+### 1. Upgrading the POST Endpoint
 
-**Before (Chapter 2):**
 ```python
-@app.post("/shipment")
-def submit_shipment(req_body: dict[str, Any]) -> dict[str, Any]:
-    id = max(shipments.keys()) + 1
-    weight = req_body["weight"]
-    content = req_body["content"]
-    # ...
-```
-
-**After (Chapter 4):**
-```python
-@app.post("/shipment", response_model=Shipment)
-def submit_shipment(req_body: Shipment):
+@app.post("/shipment", response_model=ShipmentRead)
+def submit_shipment(req_body: ShipmentCreate):
     id = max(shipments.keys()) + 1
     
-    # Convert the Pydantic model to a dictionary to store it
-    shipments[id] = req_body.model_dump()
+    # .model_dump() converts the Pydantic model to a dictionary
+    shipments[id] = {**req_body.model_dump(), "status": ShipmentStatus.PLACED}
     
-    # Convert the dictionary back to a Pydantic model to return it
-    return Shipment.model_validate(shipments[id])
+    return shipments[id]
 ```
 
-### What changed?
+**What changed?**
+- **`req_body: ShipmentCreate`**: Validates incoming JSON. The client doesn't send `status`.
+- **`response_model=ShipmentRead`**: Tells FastAPI that the return value will include the `status`.
+- **`.model_dump()`**: Converts the Pydantic object into a dictionary so we can store it in our in-memory database.
 
-1. **`req_body: Shipment`**: FastAPI automatically reads the JSON request, validates it against the `Shipment` rules (max length, max weight, allowed enums), and passes us a Python object. If validation fails, it returns a `422` error automatically!
-2. **`response_model=Shipment`**: Tells FastAPI that this endpoint returns a `Shipment` object. This makes your Scalar documentation incredibly detailed.
-3. **`model_dump()`**: Converts the Pydantic object back into a standard Python dictionary so we can store it in our `shipments` dictionary.
-4. **`model_validate()`**: Converts a dictionary back into a Pydantic object.
+### 2. Upgrading the GET Endpoint
+
+```python
+@app.get("/shipment/{id}", response_model=ShipmentRead)
+def get_shipment(id: int | None = None):
+    if id is None:
+        id = max(shipments.keys())
+    if id not in shipments:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Given ID doesn't exits"
+        )
+    return shipments[id]
+```
+Notice how `response_model=ShipmentRead` ensures the returned dictionary is automatically validated and serialized according to our schema.
+
+### 3. Upgrading the PATCH Endpoint
+
+```python
+@app.patch("/shipment/{id}", response_model=ShipmentRead)
+def update_shipment(id: int, req_body: ShipmentUpdate):
+    shipment = shipments[id]
+    shipment.update(req_body)
+    return shipments[id]
+```
+By using `ShipmentUpdate`, we strict restrict the client to *only* updating the `status` field. They cannot accidentally or maliciously change the `weight` or `content`!
 
 ---
 
@@ -121,10 +141,10 @@ uvicorn app.app:app --reload
 ```
 
 ### 1. Check the Docs
-Open `http://localhost:8000/scalar`. Look at the `POST /shipment` endpoint. You'll see:
-- A dropdown menu for `status`
-- The descriptions ("Weight of the shipment in kg")
-- The constraints (`< 25`)
+Open `http://localhost:8000/scalar`. Look at the `POST /shipment` endpoint:
+- The Request Body only asks for `content`, `weight`, and `destination` (`ShipmentCreate`).
+- The Response Model includes `status` (`ShipmentRead`).
+- The `PATCH` endpoint only allows modifying the `status` (`ShipmentUpdate`).
 
 ### 2. Test Validation
 Try sending a POST request with a weight that is too high (e.g., `30`):
@@ -133,7 +153,7 @@ curl -X POST http://localhost:8000/shipment \
   -H "Content-Type: application/json" \
   -d '{"content": "Heavy bricks", "weight": 30.5}'
 ```
-You will get a clear error back from FastAPI saying the weight must be less than 25.
+You will get a `422 Unprocessable Entity` error back from FastAPI saying the weight must be less than 25.
 
 ### 3. Test Default Factory
 Try sending a request *without* a `destination`:
@@ -151,12 +171,14 @@ Look at the response — Pydantic automatically generated a random zip code for 
 In this chapter, you:
 
 - ✅ Extracted your data structures into a dedicated `schema.py` file.
-- ✅ Used `Enum` to restrict values to a specific set.
+- ✅ Used **Pydantic Inheritance** to create separate Create, Read, and Update schemas.
 - ✅ Created a `BaseModel` with `Field` constraints (max length, less than).
 - ✅ Used `default_factory` to dynamically generate default values.
-- ✅ Updated an endpoint to use `response_model` and parse the request body automatically.
-- ✅ Used `model_dump()` and `model_validate()` to bridge Pydantic and raw dictionaries.
+- ✅ Used `.model_dump()` to convert validated objects back into dictionaries.
 
 ## Next Steps
 
-Currently, our `PATCH` and `GET` endpoints are still using raw dictionaries. In the future, we'll replace the entire `shipments` dictionary with **SQLModel** (Chapter 6), which combines Pydantic and SQLAlchemy to seamlessly save these validated models directly to a database!
+Currently, our endpoints are fully validated, but we are still saving everything to an in-memory dictionary. In the next chapter we'll replace it with a real **SQLite database** that persists across server restarts!
+
+**[Chapter 5: SQLite Database →](ch05-sqlite.md)**
+

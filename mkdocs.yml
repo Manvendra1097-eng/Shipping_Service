@@ -26,6 +26,7 @@ nav:
     - "Chapter 2 — Building Endpoints": chapters/ch02-building-endpoints.md
     - "Chapter 3 — Under the Hood": chapters/ch03-under-the-hood.md
     - "Chapter 4 — Pydantic Models": chapters/ch04-pydantic-models.md
+    - "Chapter 5 — SQLite Database": chapters/ch05-sqlite.md
   - Concepts:
     - Python Decorators: concepts/decorator.md
     - Path & Query Parameters: concepts/path_and_query_parameter.md

@@ -42,18 +42,13 @@ This guide is organized as **numbered chapters**. Each chapter builds on the pre
 | [Chapter 2](chapters/ch02-building-endpoints.md) | Building Endpoints | GET routes, path parameters, in-memory data, error handling |
 | [Chapter 3](chapters/ch03-under-the-hood.md) | Under the Hood | Request lifecycle, ASGI, type hints, OpenAPI schema |
 | [Chapter 4](chapters/ch04-pydantic-models.md) | Pydantic Models | Request/response schemas, data validation, serialization |
-
-### Part 2: Full CRUD 🔜
-
-| Chapter | Topic | What You'll Learn |
-|---------|-------|-------------------|
-| Chapter 5 | Full CRUD | Complete shipment lifecycle with Pydantic |
+| [Chapter 5](chapters/ch05-sqlite.md) | SQLite Database | Persist data with SQLite, custom DB class, parameterized queries |
 
 ### Part 3: Database Integration 🔜
 
 | Chapter | Topic | What You'll Learn |
 |---------|-------|-------------------|
-| Chapter 6 | SQLModel & SQLite | Replace in-memory dict with SQLModel ORM + SQLite |
+| Chapter 6 | SQLModel | Replace raw SQL with SQLModel ORM — define tables as Pydantic classes |
 | Chapter 7 | Database Relationships | One-to-Many, Many-to-Many relationships |
 | Chapter 8 | PostgreSQL & Alembic | Upgrade to PostgreSQL, schema migrations with Alembic |
 
@@ -105,6 +100,7 @@ learn_fastapi/
 ├── app/                          # Application code
 │   ├── __init__.py               # Makes app/ a Python package
 │   ├── app.py                    # FastAPI application — all endpoints live here
+│   ├── database.py               # SQLite database class (DB)
 │   └── schema.py                 # Pydantic models and data validation
 ├── docs/                         # This tutorial documentation (MkDocs)
 │   ├── index.md                  # You are here!
@@ -112,11 +108,14 @@ learn_fastapi/
 │   │   ├── ch01-getting-started.md
 │   │   ├── ch02-building-endpoints.md
 │   │   ├── ch03-under-the-hood.md
-│   │   └── ch04-pydantic-models.md
+│   │   ├── ch04-pydantic-models.md
+│   │   └── ch05-sqlite.md
 │   └── concepts/                 # Concept deep-dives (standalone)
 │       ├── decorator.md
 │       ├── enum.md
-│       └── path_and_query_parameter.md
+│       ├── path_and_query_parameter.md
+│       └── pydantic.md
+├── sqlite.db                     # SQLite database file (auto-created at runtime)
 ├── mkdocs.yml                    # MkDocs configuration
 ├── requirements.txt              # Python dependencies
 └── venv/                         # Virtual environment (not committed to git)

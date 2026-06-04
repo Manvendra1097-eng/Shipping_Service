@@ -1,59 +1,40 @@
 from fastapi import FastAPI, HTTPException, status
 from scalar_fastapi import get_scalar_api_reference
-from typing import Any
 
-from app.schema import Shipment
+from app.database import DB
+from app.schema import ShipmentCreate, ShipmentRead, ShipmentUpdate
 
 app = FastAPI()
 
-
-shipments = {
-    12701: {
-        "weight": 0.6,
-        "content": "Wooden table",
-        "status": "in-transit",
-    },
-    12702: {"weight": 1, "content": "Wooden Chai", "status": "Ordered"},
-}
+db = DB()
 
 
-@app.get("/shipment/latest")
-def get_latest_shipment() -> dict[str, Any]:
-    id = max(shipments.keys())
-    return shipments[id]
-
-
-@app.get("/shipment/{id}")
-def get_shipment(id: str) -> dict[str, Any]:
-    if id not in shipments:
+@app.get("/shipment/{id}", response_model=ShipmentRead)
+def get_shipment(id: int | None = None):
+    shipment = db.get(id)
+    if shipment is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Given ID doesn't exits"
         )
-    return shipments[id]
+    return shipment
 
 
-@app.post("/shipment", response_model=Shipment)
-def submit_shipment(req_body: Shipment):
-    id = max(shipments.keys()) + 1
-    shipments[id] = req_body.model_dump()
-    return Shipment.model_validate(shipments[id])
+@app.post("/shipment", response_model=None)
+def submit_shipment(req_body: ShipmentCreate):
+    new_id = db.create(req_body)
+    return {"id": new_id}
 
 
-@app.patch("/shipment/{id}")
-def update_shipment(id: int, req_body: dict[str, Any]) -> dict[str, Any]:
-    shipment = shipments[id]
-    shipment.update(req_body)
-    return shipments[id]
+@app.patch("/shipment/{id}", response_model=ShipmentRead)
+def update_shipment(id: int, req_body: ShipmentUpdate):
+    shipment = db.update(id, req_body)
+    return shipment
 
 
 @app.delete("/shipment/{id}")
-def cancel_shipment(id: int) -> int:
-    if not shipments[id]:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Shipment ID doesn't exists."
-        )
-    del shipments[id]
-    return id
+def cancel_shipment(id: int) -> dict[str, str]:
+    db.delete(id)
+    return {"detail": f"Shpment with id {id} is deleted"}
 
 
 @app.get("/scalar", include_in_schema=False)
