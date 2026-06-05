@@ -27,9 +27,9 @@ class ShipmentService:
         await self.session.refresh(shipment)
         return shipment.id
 
-    async def update(self, id: int, shipment_update: dict) -> Shipment:
+    async def update(self, id: int, shipment_update: ShipmentUpdate) -> Shipment:
         shipment = await self.session.get(Shipment, id)
-        shipment.sqlmodel_update(shipment_update)
+        shipment.sqlmodel_update(shipment_update.model_dump(exclude_unset=True))
 
         self.session.add(shipment)
         await self.session.commit()

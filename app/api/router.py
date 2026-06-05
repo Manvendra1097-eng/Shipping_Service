@@ -32,8 +32,7 @@ async def submit_shipment(req_body: ShipmentCreate, service: ShipmentServiceDep)
 async def update_shipment(
     id: int, req_body: ShipmentUpdate, service: ShipmentServiceDep
 ):
-    update_data = req_body.model_dump(exclude_none=True)
-    if not update_data:
+    if not req_body.model_dump(exclude_unset=True):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No data provided to update"
         )
@@ -43,7 +42,7 @@ async def update_shipment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shipment with id {id} not found",
         )
-    shipment = await service.update(id, update_data)
+    shipment = await service.update(id, req_body)
     return shipment
 
 
