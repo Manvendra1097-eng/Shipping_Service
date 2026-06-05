@@ -42,15 +42,16 @@ This guide is organized as **numbered chapters**. Each chapter builds on the pre
 | [Chapter 2](chapters/ch02-building-endpoints.md) | Building Endpoints | GET routes, path parameters, in-memory data, error handling |
 | [Chapter 3](chapters/ch03-under-the-hood.md) | Under the Hood | Request lifecycle, ASGI, type hints, OpenAPI schema |
 | [Chapter 4](chapters/ch04-pydantic-models.md) | Pydantic Models | Request/response schemas, data validation, serialization |
-| [Chapter 5](chapters/ch05-sqlite.md) | SQLite Database | Persist data with SQLite, custom DB class, parameterized queries |
+| [Chapter 5](chapters/ch05-sqlite.md) | SQLite (Raw SQL) | Persist data with raw `sqlite3`, custom DB class — stepping stone |
+| [Chapter 6](chapters/ch06-sqlmodel.md) | SQLModel | Tables as Python classes, session dependency, lifespan, CRUD with ORM |
+| [Chapter 7](chapters/ch07-postgres-async.md) | PostgreSQL & Async | Async engine, asyncpg, pydantic-settings, APIRouter, Service layer |
 
-### Part 3: Database Integration 🔜
+### Part 3: Authentication & Security 🔜
 
 | Chapter | Topic | What You'll Learn |
 |---------|-------|-------------------|
-| Chapter 6 | SQLModel | Replace raw SQL with SQLModel ORM — define tables as Pydantic classes |
-| Chapter 7 | Database Relationships | One-to-Many, Many-to-Many relationships |
-| Chapter 8 | PostgreSQL & Alembic | Upgrade to PostgreSQL, schema migrations with Alembic |
+| Chapter 8 | OAuth2 & JWT | Login/logout, JWT tokens, password hashing |
+| Chapter 9 | Protecting Endpoints | Dependency injection for auth, role-based access |
 
 ### Part 4: Authentication & Security 🔜
 
@@ -90,6 +91,11 @@ These are standalone pages that explore Python/FastAPI concepts in detail:
 - 🔀 [Path & Query Parameters](concepts/path_and_query_parameter.md) — Two ways to pass data to your API
 - 🛡️ [Data Validation (Pydantic)](concepts/pydantic.md) — Type-safe request/response models
 - 📋 [Enumerations (Enums)](concepts/enum.md) — Restricting fields to predefined values
+- 🗄️ [SQLModel & ORMs](concepts/sqlmodel.md) — Database tables as Python classes
+- ⚡ [Async & Concurrency](concepts/async_concurrency.md) — Event loop, async/await, asyncio, def vs async def
+- 🛣️ [APIRouter](concepts/api_router.md) — Split endpoints into modular routers
+- 🏗️ [Service Layer Pattern](concepts/service_layer.md) — Separate business logic from endpoints
+- ⚙️ [Config with pydantic-settings](concepts/pydantic_settings.md) — Manage secrets and env variables safely
 
 ## Project Structure
 
@@ -97,28 +103,37 @@ Here is the actual layout of this project:
 
 ```
 learn_fastapi/
-├── app/                          # Application code
-│   ├── __init__.py               # Makes app/ a Python package
-│   ├── app.py                    # FastAPI application — all endpoints live here
-│   ├── database.py               # SQLite database class (DB)
-│   └── schema.py                 # Pydantic models and data validation
-├── docs/                         # This tutorial documentation (MkDocs)
-│   ├── index.md                  # You are here!
-│   ├── chapters/                 # Tutorial chapters (numbered, progressive)
-│   │   ├── ch01-getting-started.md
-│   │   ├── ch02-building-endpoints.md
-│   │   ├── ch03-under-the-hood.md
-│   │   ├── ch04-pydantic-models.md
-│   │   └── ch05-sqlite.md
-│   └── concepts/                 # Concept deep-dives (standalone)
+├── .env                          # Secrets — NOT committed to git
+├── app/
+│   ├── __init__.py
+│   ├── app.py                    # FastAPI entry point + lifespan + router registration
+│   ├── api/
+│   │   ├── router.py             # Shipment CRUD endpoints (APIRouter)
+│   │   └── schema/
+│   │       └── shipment_schema.py # Pydantic request/response models
+│   ├── database/
+│   │   ├── config.py             # pydantic-settings + .env loader
+│   │   ├── models.py             # SQLModel table definitions
+│   │   └── session.py            # Async engine, init_db, SessionDep, ShipmentServiceDep
+│   └── services/
+│       └── shipment_service.py   # Business logic — add, get, update, delete
+├── docs/
+│   ├── index.md
+│   ├── chapters/
+│   │   ├── ch01 — ch07.md
+│   └── concepts/
 │       ├── decorator.md
 │       ├── enum.md
 │       ├── path_and_query_parameter.md
-│       └── pydantic.md
-├── sqlite.db                     # SQLite database file (auto-created at runtime)
-├── mkdocs.yml                    # MkDocs configuration
-├── requirements.txt              # Python dependencies
-└── venv/                         # Virtual environment (not committed to git)
+│       ├── pydantic.md
+│       ├── sqlmodel.md
+│       ├── async_concurrency.md
+│       ├── api_router.md
+│       ├── service_layer.md
+│       └── pydantic_settings.md
+├── mkdocs.yml
+├── requirements.txt
+└── venv/
 ```
 
 ---

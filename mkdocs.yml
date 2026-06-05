@@ -26,12 +26,19 @@ nav:
     - "Chapter 2 — Building Endpoints": chapters/ch02-building-endpoints.md
     - "Chapter 3 — Under the Hood": chapters/ch03-under-the-hood.md
     - "Chapter 4 — Pydantic Models": chapters/ch04-pydantic-models.md
-    - "Chapter 5 — SQLite Database": chapters/ch05-sqlite.md
+    - "Chapter 5 — SQLite (Raw SQL)": chapters/ch05-sqlite.md
+    - "Chapter 6 — SQLModel": chapters/ch06-sqlmodel.md
+    - "Chapter 7 — PostgreSQL & Async": chapters/ch07-postgres-async.md
   - Concepts:
     - Python Decorators: concepts/decorator.md
     - Path & Query Parameters: concepts/path_and_query_parameter.md
     - Data Validation (Pydantic): concepts/pydantic.md
     - Enumerations (Enums): concepts/enum.md
+    - SQLModel & ORMs: concepts/sqlmodel.md
+    - Async & Concurrency: concepts/async_concurrency.md
+    - APIRouter: concepts/api_router.md
+    - Service Layer Pattern: concepts/service_layer.md
+    - Config with pydantic-settings: concepts/pydantic_settings.md
 plugins:
   - search
 markdown_extensions:

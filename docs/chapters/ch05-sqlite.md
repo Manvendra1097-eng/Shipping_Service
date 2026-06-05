@@ -1,4 +1,7 @@
-# Chapter 5: SQLite Database
+# Chapter 5: SQLite Database (Raw SQL)
+
+!!! warning "Superseded by Chapter 6"
+    This chapter shows the **raw `sqlite3` approach** we used as a stepping stone. In [Chapter 6](ch06-sqlmodel.md), we replaced all of this with **SQLModel**, which is more Pythonic, type-safe, and production-ready. Read this chapter to understand *why* SQLModel is better, or skip straight to Chapter 6 if you're in a hurry!
 
 So far, our data has lived in a Python dictionary. Every time you restart the server, all data is lost. That is fine for learning, but not for any real application.
 
@@ -218,4 +221,7 @@ In this chapter, you:
 
 ## Next Steps
 
-We're using raw `sqlite3` which means we're writing SQL strings by hand. In **Chapter 6**, we'll upgrade to **SQLModel** — which lets you define your tables as Python classes (combining Pydantic + SQLAlchemy) and never write raw SQL again!
+We're using raw `sqlite3` which means we're writing SQL strings by hand. In the next chapter, we'll upgrade to **SQLModel** — which lets you define your tables as Python classes (combining Pydantic + SQLAlchemy) and never write raw SQL again!
+
+**[Chapter 6: SQLModel →](ch06-sqlmodel.md)**
+

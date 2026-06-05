@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from random import randint
 from typing import Optional
@@ -31,7 +32,11 @@ class ShipmentCreate(BaseShipment):
 
 class ShipmentRead(BaseShipment):
     status: ShipmentStatus
+    estimated_delivery: datetime
 
 
 class ShipmentUpdate(BaseModel):
-    status: ShipmentStatus = Field(description="Status of the shipment")
+    status: ShipmentStatus | None = Field(
+        default=None, description="Status of the shipment"
+    )
+    estimated_delivery: datetime | None = Field(default=None)
