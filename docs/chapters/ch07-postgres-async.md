@@ -308,7 +308,7 @@ pip install asyncpg
 
 **Run the server:**
 ```bash
-uvicorn app.app:app --reload
+uvicorn app.main:app --reload
 ```
 
 On startup, watch the terminal — `init_db()` will auto-create the `shipment` table in PostgreSQL.
@@ -329,4 +329,7 @@ In this chapter, you:
 
 ## Next Steps
 
-The architecture is now production-grade. Next, we'll add **Authentication** — protecting endpoints with OAuth2 and JWT tokens so only authorized users can create or modify shipments.
+The architecture is now production-grade. In the next chapter we add **full authentication** — a Seller model, bcrypt password hashing, JWT tokens, OAuth2 login/logout, and a Redis token blacklist so only authorized sellers can create or modify shipments!
+
+**[Chapter 8: Authentication →](ch08-authentication.md)**
+

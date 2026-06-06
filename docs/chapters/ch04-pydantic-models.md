@@ -10,9 +10,9 @@ In this chapter, we fix all of that using **Pydantic**, FastAPI's built-in data 
 
 !!! note "Code Evolution"
     We are splitting our code into two files:
-    
+
     1. `app/schema.py` — Where we define the "shape" of our data using Pydantic.
-    2. `app/app.py` — Our endpoints (renamed from `main.py`).
+    2. `app/main.py` — Our endpoints (canonical entrypoint).
 
 ---
 
@@ -79,7 +79,7 @@ class ShipmentUpdate(BaseModel):
 
 ## Lesson 4.2: Using the Models in Endpoints
 
-Now open your `app/app.py`. Let's import our new schemas and upgrade our endpoints.
+Now open your `app/main.py`. Let's import our new schemas and upgrade our endpoints.
 
 ### The Import
 
@@ -93,10 +93,10 @@ from app.schema import ShipmentCreate, ShipmentRead, ShipmentStatus, ShipmentUpd
 @app.post("/shipment", response_model=ShipmentRead)
 def submit_shipment(req_body: ShipmentCreate):
     id = max(shipments.keys()) + 1
-    
+
     # .model_dump() converts the Pydantic model to a dictionary
     shipments[id] = {**req_body.model_dump(), "status": ShipmentStatus.PLACED}
-    
+
     return shipments[id]
 ```
 
@@ -137,7 +137,7 @@ By using `ShipmentUpdate`, we strict restrict the client to *only* updating the 
 
 Start your server (note the new filename!):
 ```bash
-uvicorn app.app:app --reload
+uvicorn app.main:app --reload
 ```
 
 ### 1. Check the Docs
@@ -181,4 +181,3 @@ In this chapter, you:
 Currently, our endpoints are fully validated, but we are still saving everything to an in-memory dictionary. In the next chapter we'll replace it with a real **SQLite database** that persists across server restarts!
 
 **[Chapter 5: SQLite Database →](ch05-sqlite.md)**
-

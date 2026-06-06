@@ -55,7 +55,7 @@ class Shipment(SQLModel, table=True):
 !!! note "Schema vs Model"
     - **`schema.py` → Pydantic `BaseModel`**: Defines the *API contract* — what the client sends/receives.
     - **`database/models.py` → SQLModel `table=True`**: Defines the *database table* — what is stored.
-    
+
     They deliberately have slightly different fields. For example, `ShipmentCreate` doesn't have `status` or `estimated_delivery` (the API auto-sets them). But the `Shipment` DB model has both.
 
 ---
@@ -211,7 +211,7 @@ def cancel_shipment(id: int, session: SessionDep) -> dict[str, str]:
 ## 🏋️ Try It Yourself
 
 ```bash
-uvicorn app.app:app --reload
+uvicorn app.main:app --reload
 ```
 
 Watch the terminal on startup — you'll see `init_db()` running and SQLAlchemy printing the `CREATE TABLE` SQL (because `echo=True`).
@@ -241,4 +241,3 @@ In this chapter, you:
 We're using a synchronous SQLAlchemy engine. In the next chapter we upgrade to **PostgreSQL with a fully async engine**, split our endpoints into an `APIRouter`, add a **Service layer** to hold business logic, and manage configuration with **`pydantic-settings`**!
 
 **[Chapter 7: PostgreSQL, Async Engine & Application Architecture →](ch07-postgres-async.md)**
-

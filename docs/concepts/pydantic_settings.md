@@ -82,7 +82,7 @@ class Setting(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str              # Required — no default
     POSTGRES_DB: str
-    
+
     DEBUG: bool = False                 # Feature flag
     LOG_LEVEL: str = "INFO"
 ```
@@ -140,7 +140,7 @@ class Setting(BaseSettings):
 
 Then:
 ```bash
-ENV_FILE=.env.production uvicorn app.app:app
+ENV_FILE=.env.production uvicorn app.main:app
 ENV_FILE=.env.test pytest
 ```
 

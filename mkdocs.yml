@@ -29,6 +29,7 @@ nav:
     - "Chapter 5 — SQLite (Raw SQL)": chapters/ch05-sqlite.md
     - "Chapter 6 — SQLModel": chapters/ch06-sqlmodel.md
     - "Chapter 7 — PostgreSQL & Async": chapters/ch07-postgres-async.md
+    - "Chapter 8 — Authentication": chapters/ch08-authentication.md
   - Concepts:
     - Python Decorators: concepts/decorator.md
     - Path & Query Parameters: concepts/path_and_query_parameter.md
@@ -39,6 +40,8 @@ nav:
     - APIRouter: concepts/api_router.md
     - Service Layer Pattern: concepts/service_layer.md
     - Config with pydantic-settings: concepts/pydantic_settings.md
+    - JWT & OAuth2: concepts/jwt_oauth2.md
+    - Redis: concepts/redis.md
 plugins:
   - search
 markdown_extensions:

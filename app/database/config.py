@@ -8,6 +8,14 @@ class Setting(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
 
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_USER: str
+    REDIS_PASSWORD: str
+
+    JWT_TOKEN: str
+    JWT_ALGO: str
+
     model_config = SettingsConfigDict(env_file="./.env")
 
     @property
@@ -16,6 +24,3 @@ class Setting(BaseSettings):
 
 
 config = Setting()
-
-print(config.POSTGRES_DB)
-print(config.POSTGRES_URL)

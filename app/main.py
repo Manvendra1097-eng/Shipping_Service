@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from scalar_fastapi import get_scalar_api_reference
 
-from app.api.router import shipment_router
+from app.api.router import app_router
 from app.database.session import init_db
 
 
@@ -17,10 +17,10 @@ async def life_span(app: FastAPI):
 
 app = FastAPI(lifespan=life_span)
 
-app.include_router(shipment_router)
+app.include_router(app_router)
 
 
-@app.get("/scalar", include_in_schema=False)
+@app.get("/api_docs", include_in_schema=False)
 def scalar_html():
     return get_scalar_api_reference(
         openapi_url=app.openapi_url,

@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from app.database.config import config
+from app.services.seller_service import SellerService
 from app.services.shipment_service import ShipmentService
 
 
@@ -38,3 +39,11 @@ async def get_shipment_service(session: SessionDep):
 
 
 ShipmentServiceDep = Annotated[ShipmentService, Depends(get_shipment_service)]
+
+
+# for seller service
+async def get_seller_service(session: SessionDep):
+    return SellerService(session)
+
+
+SellerServiceDep = Annotated[SellerService, Depends(get_seller_service)]

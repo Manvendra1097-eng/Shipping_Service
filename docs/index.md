@@ -45,13 +45,14 @@ This guide is organized as **numbered chapters**. Each chapter builds on the pre
 | [Chapter 5](chapters/ch05-sqlite.md) | SQLite (Raw SQL) | Persist data with raw `sqlite3`, custom DB class — stepping stone |
 | [Chapter 6](chapters/ch06-sqlmodel.md) | SQLModel | Tables as Python classes, session dependency, lifespan, CRUD with ORM |
 | [Chapter 7](chapters/ch07-postgres-async.md) | PostgreSQL & Async | Async engine, asyncpg, pydantic-settings, APIRouter, Service layer |
+| [Chapter 8](chapters/ch08-authentication.md) | Authentication | Sellers, bcrypt, JWT tokens, OAuth2, Redis token blacklist |
 
-### Part 3: Authentication & Security 🔜
+### Part 3: Testing & Deployment 🔜
 
 | Chapter | Topic | What You'll Learn |
 |---------|-------|-------------------|
-| Chapter 8 | OAuth2 & JWT | Login/logout, JWT tokens, password hashing |
-| Chapter 9 | Protecting Endpoints | Dependency injection for auth, role-based access |
+| Chapter 9 | Pytest & TestClient | Unit tests, dependency overrides, test databases |
+| Chapter 10 | Docker & Deployment | Containerise the app, Docker Compose, production config |
 
 ### Part 4: Authentication & Security 🔜
 
@@ -96,6 +97,8 @@ These are standalone pages that explore Python/FastAPI concepts in detail:
 - 🛣️ [APIRouter](concepts/api_router.md) — Split endpoints into modular routers
 - 🏗️ [Service Layer Pattern](concepts/service_layer.md) — Separate business logic from endpoints
 - ⚙️ [Config with pydantic-settings](concepts/pydantic_settings.md) — Manage secrets and env variables safely
+- 🔐 [JWT & OAuth2](concepts/jwt_oauth2.md) — Tokens, bcrypt, OAuth2 flows, JTI blacklisting
+- ⚡ [Redis](concepts/redis.md) — In-memory store for caching and token blacklists
 
 ## Project Structure
 
@@ -105,32 +108,26 @@ Here is the actual layout of this project:
 learn_fastapi/
 ├── .env                          # Secrets — NOT committed to git
 ├── app/
-│   ├── __init__.py
-│   ├── app.py                    # FastAPI entry point + lifespan + router registration
+│   ├── main.py                   # FastAPI entry point + lifespan
+│   ├── dependencies.py           # All DI deps (auth chain, services)
+│   ├── utils.py                  # JWT create/decode helpers
 │   ├── api/
-│   │   ├── router.py             # Shipment CRUD endpoints (APIRouter)
+│   │   ├── router/
+│   │   │   ├── __init__.py       # Combines all routers into app_router
+│   │   │   ├── shipment_router.py
+│   │   │   └── seller_router.py
 │   │   └── schema/
-│   │       └── shipment_schema.py # Pydantic request/response models
+│   │       ├── shipment_schema.py
+│   │       └── seller_schema.py
 │   ├── database/
-│   │   ├── config.py             # pydantic-settings + .env loader
-│   │   ├── models.py             # SQLModel table definitions
-│   │   └── session.py            # Async engine, init_db, SessionDep, ShipmentServiceDep
+│   │   ├── config.py             # pydantic-settings (Postgres + Redis + JWT)
+│   │   ├── models.py             # Shipment + Seller SQLModel tables
+│   │   ├── redis.py              # Async Redis client + JTI blacklist helpers
+│   │   └── session.py            # Async engine, SessionDep, service deps
 │   └── services/
-│       └── shipment_service.py   # Business logic — add, get, update, delete
-├── docs/
-│   ├── index.md
-│   ├── chapters/
-│   │   ├── ch01 — ch07.md
-│   └── concepts/
-│       ├── decorator.md
-│       ├── enum.md
-│       ├── path_and_query_parameter.md
-│       ├── pydantic.md
-│       ├── sqlmodel.md
-│       ├── async_concurrency.md
-│       ├── api_router.md
-│       ├── service_layer.md
-│       └── pydantic_settings.md
+│       ├── shipment_service.py
+│       └── seller_service.py
+├── docs/  ← you are here
 ├── mkdocs.yml
 ├── requirements.txt
 └── venv/

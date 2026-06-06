@@ -8,7 +8,7 @@ So far, our data has lived in a Python dictionary. Every time you restart the se
 In this chapter, we replace the in-memory dictionary with a **SQLite database** — a real, file-backed database that persists data across restarts. We'll do this using Python's built-in `sqlite3` module and a custom `DB` class that wraps all database operations cleanly.
 
 !!! note "Code Evolution"
-    We have a new file: `app/database.py`. This file owns the entire relationship with SQLite so that `app/app.py` stays clean. In **Chapter 6**, we'll swap this raw `sqlite3` code for **SQLModel**, which makes this even more Pythonic!
+    We have a new file: `app/database.py`. This file owns the entire relationship with SQLite so that `app/main.py` stays clean. In **Chapter 6**, we'll swap this raw `sqlite3` code for **SQLModel**, which makes this even more Pythonic!
 
     **Project structure now:**
     ```
@@ -199,7 +199,7 @@ Notice how each endpoint is now just **one or two lines**. The `DB` class handle
 ## 🏋️ Try It Yourself
 
 ```bash
-uvicorn app.app:app --reload
+uvicorn app.main:app --reload
 ```
 
 1. **Create** a shipment via `POST /shipment`. Then **restart the server** and `GET` it back — it's still there! That's the power of a real database.
@@ -224,4 +224,3 @@ In this chapter, you:
 We're using raw `sqlite3` which means we're writing SQL strings by hand. In the next chapter, we'll upgrade to **SQLModel** — which lets you define your tables as Python classes (combining Pydantic + SQLAlchemy) and never write raw SQL again!
 
 **[Chapter 6: SQLModel →](ch06-sqlmodel.md)**
-

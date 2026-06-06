@@ -1,7 +1,6 @@
 from fastapi import HTTPException, status, APIRouter
 
-from app.database.models import Shipment
-from app.database.session import ShipmentServiceDep
+from app.dependencies import LoggedInSellerDep, ShipmentServiceDep
 from app.api.schema.shipment_schema import (
     ShipmentCreate,
     ShipmentRead,
@@ -23,14 +22,19 @@ async def get_shipment(id: int, service: ShipmentServiceDep):
 
 
 @shipment_router.post("/", response_model=None)
-async def submit_shipment(req_body: ShipmentCreate, service: ShipmentServiceDep):
+async def submit_shipment(
+    _: LoggedInSellerDep, req_body: ShipmentCreate, service: ShipmentServiceDep
+):
     id = await service.add(req_body)
     return {"id": id}
 
 
 @shipment_router.patch("/{id}", response_model=ShipmentRead)
 async def update_shipment(
-    id: int, req_body: ShipmentUpdate, service: ShipmentServiceDep
+    id: int,
+    req_body: ShipmentUpdate,
+    service: ShipmentServiceDep,
+    _: LoggedInSellerDep,
 ):
     if not req_body.model_dump(exclude_unset=True):
         raise HTTPException(
@@ -47,7 +51,9 @@ async def update_shipment(
 
 
 @shipment_router.delete("/{id}")
-async def cancel_shipment(id: int, service: ShipmentServiceDep) -> dict[str, str]:
+async def cancel_shipment(
+    id: int, service: ShipmentServiceDep, _: LoggedInSellerDep
+) -> dict[str, str]:
     shipment = await service.get(id)
     if shipment is None:
         raise HTTPException(
