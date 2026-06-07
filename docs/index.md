@@ -46,13 +46,14 @@ This guide is organized as **numbered chapters**. Each chapter builds on the pre
 | [Chapter 6](chapters/ch06-sqlmodel.md) | SQLModel | Tables as Python classes, session dependency, lifespan, CRUD with ORM |
 | [Chapter 7](chapters/ch07-postgres-async.md) | PostgreSQL & Async | Async engine, asyncpg, pydantic-settings, APIRouter, Service layer |
 | [Chapter 8](chapters/ch08-authentication.md) | Authentication | Sellers, bcrypt, JWT tokens, OAuth2, Redis token blacklist |
+| [Chapter 9](chapters/ch09-relationships-generics.md) | Relationships & Generics | UUID PKs, ORM relationships, BaseService[T], smart partner assignment |
 
 ### Part 3: Testing & Deployment 🔜
 
 | Chapter | Topic | What You'll Learn |
 |---------|-------|-------------------|
-| Chapter 9 | Pytest & TestClient | Unit tests, dependency overrides, test databases |
-| Chapter 10 | Docker & Deployment | Containerise the app, Docker Compose, production config |
+| Chapter 10 | Pytest & TestClient | Unit tests, dependency overrides, test databases |
+| Chapter 11 | Docker & Deployment | Containerise the app, Docker Compose, production config |
 
 ### Part 4: Authentication & Security 🔜
 
@@ -99,6 +100,8 @@ These are standalone pages that explore Python/FastAPI concepts in detail:
 - ⚙️ [Config with pydantic-settings](concepts/pydantic_settings.md) — Manage secrets and env variables safely
 - 🔐 [JWT & OAuth2](concepts/jwt_oauth2.md) — Tokens, bcrypt, OAuth2 flows, JTI blacklisting
 - ⚡ [Redis](concepts/redis.md) — In-memory store for caching and token blacklists
+- 🧬 [Python Generics](concepts/generics.md) — TypeVar, Generic[T], type-safe reusable base classes
+- 🔗 [SQLModel Relationships](concepts/relationships.md) — FK columns, Relationship(), selectinload, eager loading
 
 ## Project Structure
 
@@ -106,28 +109,34 @@ Here is the actual layout of this project:
 
 ```
 learn_fastapi/
-├── .env                          # Secrets — NOT committed to git
+├── .env
 ├── app/
 │   ├── main.py                   # FastAPI entry point + lifespan
-│   ├── dependencies.py           # All DI deps (auth chain, services)
+│   ├── dependencies.py           # All DI: service deps + full auth chain
 │   ├── utils.py                  # JWT create/decode helpers
 │   ├── api/
 │   │   ├── router/
-│   │   │   ├── __init__.py       # Combines all routers into app_router
+│   │   │   ├── __init__.py       # app_router combines all sub-routers
 │   │   │   ├── shipment_router.py
-│   │   │   └── seller_router.py
+│   │   │   ├── seller_router.py
+│   │   │   └── delivery_partner_router.py
 │   │   └── schema/
-│   │       ├── shipment_schema.py
-│   │       └── seller_schema.py
+│   │       ├── shipment_schema.py   # includes nested SellerRead + DeliveryPartnerRead
+│   │       ├── seller_schema.py
+│   │       └── delivery_partner_schema.py
 │   ├── database/
-│   │   ├── config.py             # pydantic-settings (Postgres + Redis + JWT)
-│   │   ├── models.py             # Shipment + Seller SQLModel tables
-│   │   ├── redis.py              # Async Redis client + JTI blacklist helpers
-│   │   └── session.py            # Async engine, SessionDep, service deps
+│   │   ├── config.py             # Postgres + Redis + JWT settings
+│   │   ├── models.py             # User, Seller, DeliveryPartner, Shipment + Relationships
+│   │   ├── redis.py              # Async Redis client + JTI blacklist
+│   │   └── session.py            # Async engine, SessionDep
 │   └── services/
-│       ├── shipment_service.py
-│       └── seller_service.py
-├── docs/  ← you are here
+│       ├── base_service.py       # Generic[ModelT, IdT] — shared CRUD
+│       ├── auth_service.py       # Pure functions: hash, verify, issue token, blacklist
+│       ├── auth_entity_service.py# Generic auth mixin: login, get_entity, logout
+│       ├── seller_service.py     # Extends AuthEntityService[Seller]
+│       ├── delivery_partner_service.py # Extends AuthEntityService[DeliveryPartner]
+│       └── shipment_service.py   # Smart partner assignment + selectinload
+├── docs/
 ├── mkdocs.yml
 ├── requirements.txt
 └── venv/

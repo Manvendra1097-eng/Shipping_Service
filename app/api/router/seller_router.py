@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import JSONResponse
 
 from app.api.schema.seller_schema import SellerCreate, SellerRead, TokenResponse
 from app.dependencies import (
@@ -30,5 +29,14 @@ async def login(request: OAuth2PasswordRequestFormDep, service: SellerServiceDep
 
 @seller_router.get("/logout")
 async def logout(payload: PayloadDep, service: SellerServiceDep):
-    await service.logout(payload["jti"], payload["exp"])
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+
+    if not isinstance(jti, str) or not isinstance(exp, (int, float)):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or malformed token",
+        )
+
+    await service.logout(jti, exp)
     return {"detail": " Logged out successfully"}

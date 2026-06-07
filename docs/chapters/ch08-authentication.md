@@ -361,4 +361,7 @@ In this chapter, you:
 
 ## Next Steps
 
-The API now has full authentication! Next steps in the roadmap include **database relationships** (linking shipments to sellers), **testing** with Pytest and TestClient, and eventually adding a React frontend.
+The API now has full authentication! The next chapter goes much further — adding a `DeliveryPartner` actor, switching all IDs to **UUID**, building database **Relationships**, and refactoring the service layer with **Python Generics** and smart partner assignment.
+
+**[Chapter 9: Relationships & Generics →](ch09-relationships-generics.md)**
+

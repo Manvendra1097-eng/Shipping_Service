@@ -5,6 +5,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.api.schema.delivery_partner_schema import DeliveryPartnerRead
+from app.api.schema.seller_schema import SellerRead
+
 
 def random_generator():
     return randint(110000, 129999)
@@ -33,6 +36,8 @@ class ShipmentCreate(BaseShipment):
 class ShipmentRead(BaseShipment):
     status: ShipmentStatus
     estimated_delivery: datetime
+    seller: SellerRead
+    delivery_partner: DeliveryPartnerRead | None = None
 
 
 class ShipmentUpdate(BaseModel):
