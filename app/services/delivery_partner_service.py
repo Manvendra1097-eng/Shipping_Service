@@ -13,7 +13,7 @@ from app.services.auth_service import (
 
 class DeliveryPartnerService(AuthEntityService[DeliveryPartner]):
     def __init__(self, session: AsyncSession):
-        super().__init__(session, DeliveryPartner)
+        super().__init__(session, DeliveryPartner, "delivery_partner")
 
     async def add(
         self, delivery_partner_create: DeliveryPartnerCreate

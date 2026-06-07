@@ -12,7 +12,7 @@ from app.services.auth_service import (
 
 class SellerService(AuthEntityService[Seller]):
     def __init__(self, session: AsyncSession):
-        super().__init__(session, Seller)
+        super().__init__(session, Seller, "seller")
 
     async def add(self, seller: SellerCreate) -> Seller:
         seller_model = Seller(

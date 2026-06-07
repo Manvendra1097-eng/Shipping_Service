@@ -18,9 +18,10 @@ ModelT = TypeVar("ModelT", bound=User)
 
 
 class AuthEntityService(BaseService[ModelT, UUID], Generic[ModelT]):
-    def __init__(self, session: AsyncSession, model: type[ModelT]):
+    def __init__(self, session: AsyncSession, model: type[ModelT], role: str):
         super().__init__(session)
         self.model = model
+        self.role = role
 
     async def login_with_email(self, email: str, password: str) -> str | None:
         statement = select(self.model).where(self.model.email == email)
@@ -30,7 +31,7 @@ class AuthEntityService(BaseService[ModelT, UUID], Generic[ModelT]):
         if user is None or not verify_password(password, user.password):
             return None
 
-        return issue_access_token(user.name, str(user.id))
+        return issue_access_token(user.name, str(user.id), self.role)
 
     async def get_entity(self, id: UUID) -> ModelT | None:
         return await self.get_by_id(self.model, id)

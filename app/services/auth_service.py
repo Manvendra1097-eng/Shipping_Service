@@ -16,8 +16,8 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return ctx.verify(password, hashed_password)
 
 
-def issue_access_token(name: str, user_id: str) -> str:
-    return get_token(data={"name": name, "id": user_id})
+def issue_access_token(name: str, user_id: str, role: str) -> str:
+    return get_token(data={"name": name, "id": user_id, "role": role})
 
 
 async def blacklist_token_if_valid(jti: str, exp: int | float) -> None:

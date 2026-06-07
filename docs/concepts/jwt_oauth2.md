@@ -34,8 +34,9 @@ Each part is Base64URL-encoded (not encrypted — just encoded):
 ```json
 {
   "name": "Alice",
-  "id": 1,
-  "jti": "a9f7c3b2-...",
+  "id": "a9f7c3b2-...",
+  "role": "seller",
+  "jti": "b3e2d1a0-...",
   "exp": 1717600000
 }
 ```
@@ -57,7 +58,7 @@ Each part is Base64URL-encoded (not encrypted — just encoded):
 | `jti` | JWT ID — unique identifier for this specific token |
 | `iss` | Issuer — who created the token |
 
-Our implementation uses `id`, `name`, `jti`, and `exp`.
+Our implementation uses `id`, `name`, `role`, `jti`, and `exp`.
 
 ---
 
@@ -216,17 +217,88 @@ bcrypt is:
 
 ---
 
+## Role-Based Auth with Multiple Actor Types
+
+When your API has multiple actor types (e.g., Seller and DeliveryPartner), a single shared `PayloadDep` is no longer safe — a delivery partner could use their token on a seller endpoint. The solution is to embed a **role** in the token and validate it.
+
+### Embed role at token creation
+
+```python
+def issue_access_token(name: str, user_id: str, role: str) -> str:
+    return get_token(data={"name": name, "id": user_id, "role": role})
+
+# SellerService passes "seller"
+token = issue_access_token(user.name, str(user.id), "seller")
+
+# DeliveryPartnerService passes "delivery_partner"
+token = issue_access_token(user.name, str(user.id), "delivery_partner")
+```
+
+### Validate role at token decode
+
+```python
+async def _get_payload_from_token(token: str, expected_role: str):
+    payload = get_payload(token)
+    if payload is None:
+        raise HTTPException(401, "Invalid or malformed token")
+
+    if payload.get("role") != expected_role:      # Key check!
+        raise HTTPException(401, "Token role mismatch")
+    ...
+    return payload
+
+# Role-specific payload deps
+SellerPayloadDep  = Annotated[dict, Depends(lambda t: _get_payload_from_token(t, "seller"))]
+PartnerPayloadDep = Annotated[dict, Depends(lambda t: _get_payload_from_token(t, "delivery_partner"))]
+```
+
+### Split OAuth2 schemes per actor
+
+```python
+seller_oauth_scheme = OAuth2PasswordBearer(tokenUrl="/seller/login", auto_error=False)
+partner_oauth_scheme = OAuth2PasswordBearer(tokenUrl="/partner/login", auto_error=False)
+```
+
+Scalar/Swagger shows separate Authorize buttons for each, and the `tokenUrl` tells the UI where to exchange credentials for a token.
+
+### Higher-order async function type hint
+
+The `_get_logged_in_entity` helper accepts a callable that fetches an entity by UUID:
+
+```python
+from typing import Callable, Awaitable
+
+async def _get_logged_in_entity(
+    payload: dict,
+    entity_getter: Callable[[UUID], Awaitable[EntityT | None]],   # "async fn(UUID) -> T"
+    not_found_detail: str,
+) -> EntityT:
+    uuid = _get_uuid_from_payload(payload)
+    entity = await entity_getter(uuid)
+    if entity is None:
+        raise HTTPException(401, not_found_detail)
+    return entity
+```
+
+`Callable[[UUID], Awaitable[T | None]]` reads as: *a callable that takes a UUID and returns an awaitable that resolves to T or None*. This is the standard way to type async callback functions in Python.
+
+---
+
 ## Key Takeaways
 
 | Concept | Summary |
 |---------|---------|
 | JWT | Signed token carrying claims — no DB lookup to verify |
+| `role` claim | Custom claim identifying the actor type (`"seller"`, `"delivery_partner"`) |
 | `jti` | Unique token ID enabling per-token invalidation |
 | `exp` | Expiry — always set an expiry on tokens |
 | `OAuth2PasswordBearer` | FastAPI utility to extract Bearer token from headers |
+| Split schemes | One `OAuth2PasswordBearer` per actor, each with its own `tokenUrl` |
 | `OAuth2PasswordRequestForm` | Standard form-data login (username + password) |
+| Role validation | Check `payload["role"] == expected_role` — reject mismatched tokens |
 | bcrypt | Secure one-way password hashing with `passlib` |
 | Redis JTI blacklist | Stateless logout — blacklist token's `jti` until it expires |
+| `Callable[[UUID], Awaitable[T]]` | Type hint for higher-order async callbacks |
 | `_: Dep` in endpoint | Dependency used only for its side-effects (auth gate) |
 
 ---

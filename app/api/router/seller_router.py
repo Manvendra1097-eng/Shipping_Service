@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.schema.seller_schema import SellerCreate, SellerRead, TokenResponse
 from app.dependencies import (
     OAuth2PasswordRequestFormDep,
-    PayloadDep,
+    SellerPayloadDep,
     SellerServiceDep,
 )
 
@@ -28,7 +28,7 @@ async def login(request: OAuth2PasswordRequestFormDep, service: SellerServiceDep
 
 
 @seller_router.get("/logout")
-async def logout(payload: PayloadDep, service: SellerServiceDep):
+async def logout(payload: SellerPayloadDep, service: SellerServiceDep):
     jti = payload.get("jti")
     exp = payload.get("exp")
 

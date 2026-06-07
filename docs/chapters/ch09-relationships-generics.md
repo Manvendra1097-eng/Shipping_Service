@@ -11,20 +11,23 @@ This chapter introduces our third actor — the **Delivery Partner** — and bri
     ├── services/
     │   ├── base_service.py        NEW — Generic[ModelT, IdT] with shared CRUD
     │   ├── auth_service.py        NEW — Pure functions: hash_password, verify_password,
-    │                                     issue_access_token, blacklist_token_if_valid
-    │   ├── auth_entity_service.py NEW — AuthEntityService[ModelT] extends BaseService
-    │   ├── seller_service.py      UPDATED — Now extends AuthEntityService[Seller]
-    │   ├── delivery_partner_service.py  NEW — Extends AuthEntityService[DeliveryPartner]
+    │                                     issue_access_token(+role), blacklist_token_if_valid
+    │   ├── auth_entity_service.py NEW — AuthEntityService[ModelT](session, model, role)
+    │   ├── seller_service.py      UPDATED — passes role="seller" to AuthEntityService
+    │   ├── delivery_partner_service.py  NEW — role="delivery_partner"
     │   └── shipment_service.py    UPDATED — Smart partner assignment, selectinload,
     │                                         NoDeliveryPartnerAvailableError, UUID IDs
     ├── api/
     │   ├── router/
-    │   │   └── delivery_partner_router.py  NEW — /partner/signup, /login, /logout
+    │   │   ├── delivery_partner_router.py  NEW — /partner/signup, /login, /logout
+    │   │   │                                     uses PartnerPayloadDep
+    │   │   └── seller_router.py           UPDATED — uses SellerPayloadDep
     │   └── schema/
     │       ├── delivery_partner_schema.py  NEW — DeliveryPartnerCreate/Read
     │       └── shipment_schema.py          UPDATED — seller + delivery_partner in ShipmentRead
-    └── dependencies.py            UPDATED — DeliveryPartnerServiceDep, LoggedInDeliveryPartnerDep,
-                                             UUID validation, hardened jti check
+    └── dependencies.py            UPDATED — split OAuth2 schemes per actor, role validation,
+                                             _get_logged_in_entity generic helper,
+                                             SellerPayloadDep + PartnerPayloadDep
     ```
 
 ---
@@ -157,8 +160,9 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed_password: str) -> bool:
     return ctx.verify(password, hashed_password)
 
-def issue_access_token(name: str, user_id: str) -> str:
-    return get_token(data={"name": name, "id": user_id})
+# role is embedded in the token payload so the API can verify WHO issued it
+def issue_access_token(name: str, user_id: str, role: str) -> str:
+    return get_token(data={"name": name, "id": user_id, "role": role})
 
 async def blacklist_token_if_valid(jti: str, exp: int | float) -> None:
     ex = int(exp) - int(datetime.now(timezone.utc).timestamp())
@@ -167,6 +171,8 @@ async def blacklist_token_if_valid(jti: str, exp: int | float) -> None:
     await add_jti_to_blacklist(jti, ex)
 ```
 
+The key addition is the `role` parameter in `issue_access_token`. Every token now carries a `"role"` claim — `"seller"` or `"delivery_partner"`. This allows the API to reject a delivery partner's token on a seller-only endpoint.
+
 !!! tip "Pure functions vs methods"
     These functions have **no dependency on `self`** — they're standalone utilities. Keeping them separate makes them trivially testable and reusable by any service.
 
@@ -174,15 +180,16 @@ async def blacklist_token_if_valid(jti: str, exp: int | float) -> None:
 
 ## Lesson 9.4: `AuthEntityService` — Generic Auth Mixin
 
-`AuthEntityService` sits between `BaseService` and the concrete services. It handles the login/logout pattern that's identical for `Seller` and `DeliveryPartner`:
+`AuthEntityService` sits between `BaseService` and the concrete services. It now also stores the **role string** used to stamp every token:
 
 ```python
 ModelT = TypeVar("ModelT", bound=User)   # Constrained: must be a User subclass
 
 class AuthEntityService(BaseService[ModelT, UUID], Generic[ModelT]):
-    def __init__(self, session: AsyncSession, model: type[ModelT]):
+    def __init__(self, session: AsyncSession, model: type[ModelT], role: str):
         super().__init__(session)
         self.model = model    # The concrete model class (Seller or DeliveryPartner)
+        self.role = role      # "seller" or "delivery_partner"
 
     async def login_with_email(self, email: str, password: str) -> str | None:
         statement = select(self.model).where(self.model.email == email)
@@ -190,7 +197,7 @@ class AuthEntityService(BaseService[ModelT, UUID], Generic[ModelT]):
         user = result.scalar()
         if user is None or not verify_password(password, user.password):
             return None
-        return issue_access_token(user.name, str(user.id))
+        return issue_access_token(user.name, str(user.id), self.role)  # role embedded
 
     async def get_entity(self, id: UUID) -> ModelT | None:
         return await self.get_by_id(self.model, id)
@@ -204,34 +211,22 @@ class AuthEntityService(BaseService[ModelT, UUID], Generic[ModelT]):
 ```
 BaseService[ModelT, IdT]           — generic CRUD (add, get, update, delete)
     │
-    └── AuthEntityService[ModelT]  — login, get_entity, logout_token
+    └── AuthEntityService[ModelT]  — login (+ role embed), get_entity, logout_token
             │
-            ├── SellerService      — add (with hash_password)
-            └── DeliveryPartnerService — add (with hash_password + zip codes)
+            ├── SellerService(session, Seller, "seller")
+            └── DeliveryPartnerService(session, DeliveryPartner, "delivery_partner")
 ```
 
-Each concrete service only defines what's **unique** to it:
+Each concrete service passes its role identity to the base:
 
 ```python
 class SellerService(AuthEntityService[Seller]):
     def __init__(self, session: AsyncSession):
-        super().__init__(session, Seller)   # Pass the model class up
+        super().__init__(session, Seller, "seller")   # role="seller" embedded in token
 
-    async def add(self, seller: SellerCreate) -> Seller:
-        seller_model = Seller(
-            **seller.model_dump(exclude=["password"]),
-            password=hash_password(seller.password),
-        )
-        return await self.add_and_commit(seller_model)  # Inherited from BaseService
-
-    async def login(self, email: str, password: str):
-        return await self.login_with_email(email, password)  # Inherited
-
-    async def get_seller(self, id: UUID):
-        return await self.get_entity(id)  # Inherited
-
-    async def logout(self, jti: str, exp: int | float):
-        await self.logout_token(jti, exp)  # Inherited
+class DeliveryPartnerService(AuthEntityService[DeliveryPartner]):
+    def __init__(self, session: AsyncSession):
+        super().__init__(session, DeliveryPartner, "delivery_partner")
 ```
 
 ---
@@ -375,36 +370,96 @@ The response now includes full nested objects:
 
 ---
 
-## Lesson 9.9: Hardened Auth Dependencies
+## Lesson 9.9: Role-Based Token Validation
 
-The `get_payload_from_token` dependency is now stricter — it validates the `jti` type before the Redis check:
+With two actor types (Seller, DeliveryPartner), we can no longer use a single `PayloadDep`. The dependency system was refactored to be fully role-aware:
+
+### Split OAuth2 Schemes
 
 ```python
-async def get_payload_from_token(token: TokenDep):
+# Each actor has its own scheme pointing to its own login URL
+seller_oauth_scheme = OAuth2PasswordBearer(tokenUrl="/seller/login", auto_error=False)
+partner_oauth_scheme = OAuth2PasswordBearer(tokenUrl="/partner/login", auto_error=False)
+
+SellerOAuth2PasswordBearerDep = Annotated[str | None, Depends(seller_oauth_scheme)]
+PartnerOAuth2PasswordBearerDep = Annotated[str | None, Depends(partner_oauth_scheme)]
+```
+
+This means Swagger/Scalar's Authorize UI shows **two separate login flows** — one for sellers, one for delivery partners.
+
+### Role Validation in `_get_payload_from_token`
+
+```python
+async def _get_payload_from_token(token: str, expected_role: str):
     payload = get_payload(token)
     if payload is None:
         raise HTTPException(401, "Invalid or malformed token")
 
+    role = payload.get("role")
+    if role != expected_role:                    # Reject wrong-role tokens!
+        raise HTTPException(401, "Token role mismatch")
+
     jti = payload.get("jti")
-    if not isinstance(jti, str) or not jti:      # Validate type, not just truthiness
+    if not isinstance(jti, str) or not jti:
         raise HTTPException(401, "Invalid or malformed token")
 
     if await is_jti_blacklisted(jti):
         raise HTTPException(401, "Invalid or malformed token")
     return payload
+
+async def get_seller_payload_from_token(token: SellerTokenDep):
+    return await _get_payload_from_token(token, "seller")
+
+async def get_partner_payload_from_token(token: PartnerTokenDep):
+    return await _get_payload_from_token(token, "delivery_partner")
+
+SellerPayloadDep = Annotated[dict, Depends(get_seller_payload_from_token)]
+PartnerPayloadDep = Annotated[dict, Depends(get_partner_payload_from_token)]
 ```
 
-And UUID validation in `get_logged_in_seller`:
+A delivery partner cannot use their token to call seller-only endpoints — the `role` check rejects it with `401 Token role mismatch`.
+
+### Generic `_get_logged_in_entity` Helper
+
+Instead of duplicating `get_logged_in_seller` and `get_logged_in_delivery_partner` (which were identical except for the service call and error message), a single generic helper is used:
+
 ```python
-async def get_logged_in_seller(payload: PayloadDep, service: SellerServiceDep):
-    seller_id = payload.get("id")
+EntityT = TypeVar("EntityT")   # Used only in dependencies.py
+
+def _get_uuid_from_payload(payload: dict) -> UUID:
+    entity_id = payload.get("id")
     try:
-        seller_uuid = UUID(str(seller_id))     # Strict UUID parsing
+        return UUID(str(entity_id))
     except (ValueError, TypeError):
         raise HTTPException(401, "Invalid or malformed token")
-    seller = await service.get_seller(seller_uuid)
-    ...
+
+async def _get_logged_in_entity(
+    payload: dict,
+    entity_getter: Callable[[UUID], Awaitable[EntityT | None]],
+    not_found_detail: str,
+) -> EntityT:
+    entity_uuid = _get_uuid_from_payload(payload)
+    entity = await entity_getter(entity_uuid)
+    if entity is None:
+        raise HTTPException(401, not_found_detail)
+    return entity
+
+# Used by sellers
+async def get_logged_in_seller(payload: SellerPayloadDep, service: SellerServiceDep):
+    return await _get_logged_in_entity(payload, service.get_entity, "Seller account not found")
+
+LoggedInSellerDep = Annotated[Seller, Depends(get_logged_in_seller)]
+
+# Used by delivery partners
+async def get_logged_in_delivery_partner(
+    payload: PartnerPayloadDep, service: DeliveryPartnerServiceDep
+):
+    return await _get_logged_in_entity(payload, service.get_entity, "Delivery partner account not found")
+
+LoggedInDeliveryPartnerDep = Annotated[DeliveryPartner, Depends(get_logged_in_delivery_partner)]
 ```
+
+`Callable[[UUID], Awaitable[EntityT | None]]` is the type annotation for "an async function that takes a UUID and returns EntityT or None". This is Python's way of typing higher-order async functions.
 
 ---
 
@@ -417,14 +472,18 @@ In this chapter, you:
 - ✅ Defined **SQLModel Relationships** (`back_populates`) for FK joins
 - ✅ Stored a **PostgreSQL ARRAY** column (`ARRAY(INTEGER)`)
 - ✅ Built a **`Generic` base service** (`BaseService[ModelT, IdT]`) eliminating repeated CRUD code
-- ✅ Created **pure auth functions** in `auth_service.py` (hash, verify, issue token, blacklist)
-- ✅ Built an **`AuthEntityService[ModelT]`** generic mixin for login/logout
-- ✅ Implemented **smart delivery partner assignment** (zip-code match → capacity check → sort)
+- ✅ Created **pure auth functions** in `auth_service.py` (hash, verify, issue token + role, blacklist)
+- ✅ Embedded a **`role` claim** in every JWT — `"seller"` or `"delivery_partner"`
+- ✅ Built an **`AuthEntityService[ModelT]`** generic mixin that stores its role and embeds it at login
+- ✅ Implemented **smart delivery partner assignment** (zip-code `ANY()` → capacity check → sort)
 - ✅ Used `func.count + GROUP BY` to count active loads in **one DB query**
 - ✅ Used `selectinload` to eagerly load related objects in async SQLAlchemy
 - ✅ Returned **nested response models** (`seller`, `delivery_partner` inside `ShipmentRead`)
-- ✅ Hardened auth dependencies with **UUID parsing** and strict JTI type checks
+- ✅ Split OAuth2 schemes per actor (`seller_oauth_scheme` / `partner_oauth_scheme`)
+- ✅ Added **role validation** (`_get_payload_from_token(token, expected_role)`) — cross-actor tokens rejected with 401
+- ✅ Used a **generic `_get_logged_in_entity` helper** (`Callable[[UUID], Awaitable[T]]`) to eliminate duplicated auth logic
+- ✅ Separated UUID parsing into `_get_uuid_from_payload` for clean reuse
 
 ## Next Steps
 
-With the data model and auth fully in place, next up is **testing** with Pytest and FastAPI's `TestClient`, and **Docker Compose** to orchestrate PostgreSQL + Redis + the app together.
+With the data model, relationships, and role-based auth fully in place, next up is **testing** with Pytest and FastAPI's `TestClient`, and **Docker Compose** to orchestrate PostgreSQL + Redis + the app together.

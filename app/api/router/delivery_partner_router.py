@@ -8,7 +8,7 @@ from app.api.schema.seller_schema import TokenResponse
 from app.dependencies import (
     DeliveryPartnerServiceDep,
     OAuth2PasswordRequestFormDep,
-    PayloadDep,
+    PartnerPayloadDep,
 )
 
 
@@ -36,7 +36,7 @@ async def login(
 
 
 @delivery_partner_router.get("/logout")
-async def logout(payload: PayloadDep, service: DeliveryPartnerServiceDep):
+async def logout(payload: PartnerPayloadDep, service: DeliveryPartnerServiceDep):
     jti = payload.get("jti")
     exp = payload.get("exp")
 
